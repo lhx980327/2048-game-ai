@@ -1,0 +1,22 @@
+
+int main(int argc, char *argv[]) {
+    int opt;
+    while ((opt = getopt(argc, argv, "as")) != -1) {
+        switch (opt) {
+            case 'a':
+                auto_play = 1;
+                break;
+            case 's':
+                suggestion = 1;
+                break;
+            default: /* '?' */
+                fprintf(stderr, "Usage: %s [-a] [-s]\r\n", argv[0]);
+                fprintf(stderr, "-a:  Let AI play the game\r\n");
+                fprintf(stderr, "-s:  Display AI suggestion\r\n");
+                exit(EXIT_FAILURE);
+        }
+ 
+    }
+ 
+ 
+ 
