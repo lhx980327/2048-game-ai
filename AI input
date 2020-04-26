@@ -1,0 +1,27 @@
+
+static int AI_input(board_t b) {
+    int choice;
+    int zeros = board_count_zero(b);
+ 
+    long start = gettime();
+    double v = value(b, depth_map[zeros], &choice, 0);
+    long timeval = gettime() - start;
+    stat(depth_map[zeros], timeval);
+ 
+    return choice;
+}
+
+static int Keyboard_input() {
+    char c;
+    while(1) {
+        //c = getchar();
+        c = getch();
+        switch(c) {
+            case 'w': return UP;
+            case 'a': return LEFT;
+            case 's': return DOWN;
+            case 'd': return RIGHT;
+            case 'q': return QUIT;
+        }
+    }
+}
