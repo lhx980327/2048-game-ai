@@ -1,0 +1,12 @@
+void init() {
+    int i;
+    int cur_weight = 1;
+    int cur_real = 2;
+    for (i = 1; i < 16; i++) {
+        value_weight[i] = cur_weight;
+        value_real[i] = cur_real;
+        cur_weight *= 3;
+        cur_real *= 2;
+    }
+}
+
