@@ -2,7 +2,7 @@
 #coding:utf-8
 
 from random import randint
-from BaseAI import BaseAI
+from AIinput import AIinput
 from sysconfig import sys
 
 
@@ -10,7 +10,7 @@ sys.setrecursionlimit(4000)
 
 class Player(AIinput):
 
-	#variable that keeps track of the most optimal direction the PlayerAI can make
+	#variable that keeps track of the most optimal direction the Player can make
 	def _init_(self):
 		self.direction = -1
 
