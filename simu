@@ -1,0 +1,177 @@
+import random, re, copy
+
+game = [([0] * 4) for i in range(4)]
+gameNext = [([0] * 4) for i in range(4)]
+
+weightProp = [15, 4, 4]
+
+
+def simulation(direction):
+    global gameNext
+    gameNext = copy.deepcopy(game)
+    if direction == 'UP':
+        for j in range(4):
+            for i in range(0, 3):
+                if gameNext[i][j] == 0:
+                    for k in range(i + 1, 4):
+                        if gameNext[k][j] != 0:
+                            gameNext[i][j], gameNext[k][j] = gameNext[k][j], gameNext[i][j]
+                            break
+                    if k == 4:
+                        break
+            for i in range(1, 4):
+                if gameNext[i][j] == 0:
+                    break
+                elif gameNext[i][j] == gameNext[i - 1][j]:
+                    gameNext[i - 1][j] *= 2
+                    for k in range(i, 3):
+                        gameNext[k][j] = gameNext[k + 1][j]
+                    gameNext[3][j] = 0
+    elif direction == 'RIGHT':
+        for i in range(4):
+            for j in range(3, 0, -1):
+                if gameNext[i][j] == 0:
+                    for k in range(j - 1, -1, -1):
+                        if gameNext[i][k] != 0:
+                            gameNext[i][j], gameNext[i][k] = gameNext[i][k], gameNext[i][j]
+                            break
+                    if k == -1:
+                        break
+            for j in range(2, -1, -1):
+                if gameNext[i][j] == 0:
+                    break
+                elif gameNext[i][j] == gameNext[i][j + 1]:
+                    gameNext[i][j + 1] *= 2
+                    for k in range(j, 0, -1):
+                        gameNext[i][k] = gameNext[i][k - 1]
+                    gameNext[i][0] = 0
+    elif direction == 'DOWN':
+        for j in range(4):
+            for i in range(3, 0, -1):
+                if gameNext[i][j] == 0:
+                    for k in range(i - 1, -1, -1):
+                        if gameNext[k][j] != 0:
+                            gameNext[i][j], gameNext[k][j] = gameNext[k][j], gameNext[i][j]
+                            break
+                    if k == -1:
+                        break
+            for i in range(2, -1, -1):
+                if gameNext[i][j] == 0:
+                    break
+                elif gameNext[i][j] == gameNext[i + 1][j]:
+                    gameNext[i + 1][j] *= 2
+                    for k in range(i, 0, -1):
+                        gameNext[k][j] = gameNext[k - 1][j]
+                    gameNext[0][j] = 0
+    elif direction == 'LEFT':
+        for i in range(4):
+            for j in range(0, 3):
+                if gameNext[i][j] == 0:
+                    for k in range(j + 1, 4):
+                        if gameNext[i][k] != 0:
+                            gameNext[i][j], gameNext[i][k] = gameNext[i][k], gameNext[i][j]
+                            break
+                    if k == 4:
+                        break
+            for j in range(1, 4):
+                if gameNext[i][j] == 0:
+                    break
+                elif gameNext[i][j] == gameNext[i][j - 1]:
+                    gameNext[i][j - 1] *= 2
+                    for k in range(j, 3):
+                        gameNext[i][k] = gameNext[i][k + 1]
+                    gameNext[i][3] = 0
+
+
+def monotonicity():
+    score = 100
+    subtract = score / (2 * 4 * 4)
+
+    average = 0
+    for i in range(4):
+        for j in range(4):
+            average += gameNext[i][j]
+    average /= 16
+
+    maxNum = {'num': 0, 'i': 0, 'j': 0}
+    for i in range(4):
+        for j in range(4):
+            if gameNext[i][j] > maxNum['num']:
+                maxNum['num'] = gameNext[i][j]
+                maxNum['i'] = i
+                maxNum['j'] = j
+
+    if maxNum['j'] < 2:
+        for i in range(4):
+            for j in range(1, 4):
+                if gameNext[i][j] > gameNext[i][j - 1]:
+                    score -= subtract * ((gameNext[i][j] - gameNext[i][j - 1]) / average)
+    else:
+        for i in range(4):
+            for j in range(1, 4):
+                if gameNext[i][j] < gameNext[i][j - 1]:
+                    score -= subtract * ((gameNext[i][j - 1] - gameNext[i][j]) / average)
+    if maxNum['i'] < 2:
+        for j in range(4):
+            for i in range(1, 4):
+                if gameNext[i][j] > gameNext[i - 1][j]:
+                    score -= subtract * ((gameNext[i][j] - gameNext[i - 1][j]) / average)
+    else:
+        for j in range(4):
+            for i in range(1, 4):
+                if gameNext[i][j] < gameNext[i - 1][j]:
+                    score -= subtract * ((gameNext[i - 1][j] - gameNext[i][j]) / average)
+    return score
+
+
+def smoothness():
+    score = 0
+    plus = 20
+    average = 0
+    for i in range(4):
+        for j in range(4):
+            average += gameNext[i][j]
+    average /= 16
+    for i in range(4):
+        for j in range(1, 4):
+            if gameNext[i][j] == gameNext[i][j - 1]:
+                score += plus * (gameNext[i][j] / average)
+    for j in range(4):
+        for i in range(1, 4):
+            if gameNext[i][j] == gameNext[i - 1][j]:
+                score += plus * (gameNext[i][j] / average)
+    return score
+
+
+def freeTiles():
+    score = 0
+    plus = 10
+    for j in range(4):
+        for i in range(4):
+            if gameNext[i][j] == 0:
+                score += plus
+    return score
+
+
+def get2048():
+    score = 0
+    for j in range(4):
+        for i in range(4):
+            if gameNext[i][j] == 2048:
+                score += 1000000
+    return score
+
+
+dirKey = ['UP', 'RIGHT', 'DOWN', 'LEFT']
+
+
+def scoringSimu():
+    scores = [0] * 4
+    for i in range(4):
+        simulation(dirKey[i])
+        if game == gameNext:
+            scores[i] = 0
+        else:
+            scores[i] = monotonicity() * weightProp[0] + smoothness() * weightProp[1] + freeTiles() * weightProp[
+                2] + get2048()
+    return scores.index(max(scores))
