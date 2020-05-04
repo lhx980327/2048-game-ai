@@ -1,306 +1,261 @@
-class TransparentGroup(pyglet.graphics.Group):
-    def set_state(self):
-        glEnable(GL_BLEND)
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+import copy
 
-    def unset_state(self):
-        glDisable(GL_BLEND)
+import numpy as np
+import random
 
 
-SQ_SIZE = 58
-SPACING = 10
+class Game(object):
+    def __init__(self, dimension=4):
+        self.dimension = dimension  # 维数，决定要构建几维的矩阵
+        self.matrix = np.zeros((dimension, dimension))  # 创建一个全是0的n(n = dimension)维矩阵
+        self.matrixSimu = np.zeros((dimension, dimension))
 
-BG_COLORS = {
-    1: ('c3B', (238, 228, 219, 238, 228, 219, 238, 228, 219, 238, 228, 219)),
-    2: ('c3B', (237, 224, 201, 237, 224, 201, 237, 224, 201, 237, 224, 201)),
-    3: ('c3B', (241, 177, 125, 241, 177, 125, 241, 177, 125, 241, 177, 125)),
-    4: ('c3B', (243, 149, 104, 243, 149, 104, 243, 149, 104, 243, 149, 104)),
-    5: ('c3B', (243, 127, 100, 243, 127, 100, 243, 127, 100, 243, 127, 100)),
-    6: ('c3B', (244, 96, 67, 244, 96, 67, 244, 96, 67, 244, 96, 67)),
-    7: ('c3B', (236, 206, 120, 236, 206, 120, 236, 206, 120, 236, 206, 120)),
-    8: ('c3B', (237, 204, 97, 237, 204, 97, 237, 204, 97, 237, 204, 97)),
-    9: ('c3B', (237, 200, 80, 237, 200, 80, 237, 200, 80, 237, 200, 80)),
-    10: ('c3B', (237, 197, 63, 237, 197, 63, 237, 197, 63, 237, 197, 63)),
-    11: ('c3B', (237, 194, 46, 237, 194, 46, 237, 194, 46, 237, 194, 46)),
-    12: ('c3B', (119, 110, 101, 119, 110, 101, 119, 110, 101, 119, 110, 101)),
-    13: ('c3B', (119, 110, 101, 119, 110, 101, 119, 110, 101, 119, 110, 101)),
-    14: ('c3B', (119, 110, 101, 119, 110, 101, 119, 110, 101, 119, 110, 101)),
-}
-TEXT_COLORS = {
-    1: (119, 110, 101, 255),
-    2: (255, 255, 255, 255),
-}
-LOST_SCREEN_COLOR = ('c4B', (238, 228, 219, 128,
-                             238, 228, 219, 128,
-                             238, 228, 219, 128,
-                             238, 228, 219, 128))
-
-WINDOW = pyglet.window.Window(280, 280)
-BACKGROUND = pyglet.graphics.OrderedGroup(0)
-FOREGROUND = pyglet.graphics.OrderedGroup(1)
-
-BG = pyglet.image.load('assets/bg.png')
-BG_SPRITE = pyglet.sprite.Sprite(BG)
-
-FULL_SCREEN_VECTOR = ('v2f', (0, 0,
-                              0, WINDOW.height,
-                              WINDOW.width, 0,
-                              WINDOW.width, WINDOW.height))
-
-LOST_SCREEN = pyglet.graphics.Batch()
-LOST_SCREEN.add_indexed(4, GL_TRIANGLE_STRIP,
-                        TransparentGroup(), [0, 1, 2, 3],
-                        FULL_SCREEN_VECTOR,
-                        LOST_SCREEN_COLOR)
-LOST_TEXT = pyglet.text.Label('Final Score: 0',
-                              font_name='Arial',
-                              font_size=18,
-                              x=WINDOW.width//2, y=WINDOW.height//2,
-                              anchor_x='center', anchor_y='center',
-                              batch=LOST_SCREEN, group=FOREGROUND)
-
-
-class Tile:
-    def __init__(self, val, x, y):
-        self.val = val
-        self.x = x
-        self.y = y
-        self.merged_flag = False
-
-    def move(self, x, y):
-        self.x = x
-        self.y = y
-
-    def __str__(self):
-        return str(self.val)+' at '+str(self.x)+', '+str(self.y)
-
-
-class GraphicTile(Tile):
-    def __init__(self, val, x, y):
-        super().__init__(val, x, y)
-        self.gx = lambda: self.x * (SQ_SIZE+SPACING) + SPACING
-        self.gy = lambda: WINDOW.height - (self.y+1) * (SQ_SIZE+SPACING)  # 0, 0 is bottom-left
-        self.batch = pyglet.graphics.Batch()
-        self.v_list = self.batch.add_indexed(4, GL_TRIANGLE_STRIP,
-                                             BACKGROUND, [0, 1, 2, 3],
-                                             ('v2f', (self.gx(), self.gy(),
-                                                      self.gx(), self.gy()+SQ_SIZE,
-                                                      self.gx()+SQ_SIZE, self.gy(),
-                                                      self.gx()+SQ_SIZE, self.gy()+SQ_SIZE)),
-                                             BG_COLORS[1])
-        self.label = pyglet.text.Label(str(2**val),
-                                       font_name='Arial',
-                                       bold=True,
-                                       font_size=32,
-                                       color=TEXT_COLORS[1],
-                                       x=self.gx()+SQ_SIZE//2, y=self.gy()+SQ_SIZE//2,
-                                       anchor_x='center', anchor_y='center',
-                                       batch=self.batch, group=FOREGROUND)
-        if self.val in BG_COLORS:
-            self.v_list.colors = BG_COLORS[self.val][1]
-
-    def move(self, x, y):
-        super().move(x, y)
-        self.v_list.vertices = [self.gx(), self.gy(),
-                                self.gx(), self.gy()+SQ_SIZE,
-                                self.gx()+SQ_SIZE, self.gy(),
-                                self.gx()+SQ_SIZE, self.gy()+SQ_SIZE]
-        self.label.x = self.gx()+SQ_SIZE//2
-        self.label.y = self.gy()+SQ_SIZE//2
-        self.label.text = str(2**self.val)
-
-        if self.val in BG_COLORS:
-            self.v_list.colors = BG_COLORS[self.val][1]
-
-        if self.val > 9:
-            self.label.font_size = 16
-        elif self.val > 6:
-            self.label.font_size = 24
-        elif self.val > 2:
-            self.label.color = TEXT_COLORS[2]
-
-
-class Board:
-    def __init__(self, graphic=False):
-        self.graphic = graphic
-        self.board = [[None for i in range(4)] for j in range(4)]
-        self.score = 0
-        self.lost = False
-
-        self.spawn_tile()
-        self.spawn_tile()
-
-    def show(self):
-        for i in range(0, 4):
-            for j in range(0, 4):
-                if self.board[i][j] is None:
-                    print('_ ', end='')
-                else:
-                    print(str(self.board[i][j].val)+' ', end='')
-            print()
-
-    def inbounds(self, x, y):
-        return 0 <= y and y < len(self.board) and 0 <= x and x < len(self.board[0])
-
-    def exist(self, x, y):
-        return self.inbounds(x, y) and self.board[y][x] is not None
-
-    def get_empty_spots(self):
-        empty_spots = []
-        for y in range(0, 4):
-            for x in range(0, 4):
-                if self.board[y][x] is None:
-                    empty_spots.append((x, y))
-        return empty_spots
-
-    def spawn_tile(self):
-        empty_spots = self.get_empty_spots()
-        if len(empty_spots) is 0:
-            return False
-
-        spot = random.choice(empty_spots)
-        if not self.graphic:
-            if random.random() < 0.90:
-                self.board[spot[1]][spot[0]] = Tile(1, spot[0], spot[1])
-            else:
-                self.board[spot[1]][spot[0]] = Tile(2, spot[0], spot[1])
-        else:
-            if random.random() < 0.90:
-                self.board[spot[1]][spot[0]] = GraphicTile(1, spot[0], spot[1])
-            else:
-                self.board[spot[1]][spot[0]] = GraphicTile(2, spot[0], spot[1])
-        return True
-
-    @staticmethod
-    def mini_shift(tile_line):
-        # Shift one row or column forward
-        moved_flag = False
-        points = 0
-        for i in range(0, 3):
-            r = 2-i
-            if tile_line[r] is not None:
-                z = r
-                while z < 3:
-                    if tile_line[z+1] is not None:
-                        break
-                    z += 1
-                if tile_line[z] is None:
-                    # If found a new empty spot, swap tiles
-                    tile_line[z] = tile_line[r]
-                    tile_line[r] = None
-                    moved_flag = True
-                # Check for merge
-                if z < 3 and not tile_line[z+1].merged_flag and \
-                   tile_line[z+1].val is tile_line[z].val:
-                    tile_line[z+1].val += 1
-                    points += 2**tile_line[z+1].val
-                    tile_line[z+1].merged_flag = True
-                    tile_line[z] = None
-                    moved_flag = True
-        return (tile_line, moved_flag, points)
-
-    def shift(self, direction):
-        moved_flag = False
-        if direction is 'w' or direction is 's':
-            for col in range(0, 4):
-                tile_line = [self.board[row][col] for row in range(0, 4)]
-                if direction is 'w':
-                    tile_line.reverse()
-                shifted_tiles, made_move, points = Board.mini_shift(tile_line)
-                self.score += points
-                moved_flag |= made_move
-                if direction is 'w':
-                    shifted_tiles.reverse()
-                for row in range(0, 4):
-                    self.board[row][col] = shifted_tiles[row]
-        elif direction is 'a' or direction is 'd':
-            for row in range(0, 4):
-                tile_line = list(self.board[row])
-                if direction is 'a':
-                    tile_line.reverse()
-                shifted_tiles, made_move, points = Board.mini_shift(tile_line)
-                self.score += points
-                moved_flag |= made_move
-                if direction is 'a':
-                    shifted_tiles.reverse()
-                self.board[row] = shifted_tiles
-        return moved_flag
-
-    def check_loss(self):
-        for y in range(0, 4):
-            for x in range(0, 4):
-                if self.board[y][x] is None or \
-                   (self.exist(x-1, y) and self.board[y][x-1].val is self.board[y][x].val) or \
-                   (self.exist(x+1, y) and self.board[y][x+1].val is self.board[y][x].val) or \
-                   (self.exist(x, y-1) and self.board[y-1][x].val is self.board[y][x].val) or \
-                   (self.exist(x, y+1) and self.board[y+1][x].val is self.board[y][x].val):
+    def judge_gameover(self):  # 判断是否游戏结束，如果游戏结束返回True，未结束则返回False
+        '''如果水平方向上任意两个相邻的数字有相等的或者有为0的那么游戏未结束'''
+        for a in range(0, self.dimension):
+            for b in range(0, self.dimension - 1):
+                if self.matrix[a][b] == self.matrix[a][b + 1] or self.matrix[a][b] == 0 or self.matrix[a][b + 1] == 0:
+                    return False
+        '''如果垂直方向上任意两个相邻的数字有相等的或者有为0的那么游戏未结束'''
+        self.matrix = np.transpose(self.matrix)  # 先转置垂直方向变作水平方向 eg:[[1,2],[3,4]]>>[[1,3],[2,4]]
+        for a in range(0, self.dimension):
+            for b in range(0, self.dimension - 1):
+                if self.matrix[a][b] == self.matrix[a][b + 1] or self.matrix[a][b] == 0 or self.matrix[a][b + 1] == 0:
                     return False
         return True
 
-    def computer_move(self):
-        for row in range(0, 4):
-            for col in range(0, 4):
-                if self.board[row][col] is not None:
-                    self.board[row][col].move(col, row)
-                    self.board[row][col].merged_flag = False
-        self.spawn_tile()
-        self.lost |= self.check_loss()
+    def generate_num(self):  # 在随机的空白(为0)的位置替换为1个随机的2或者4
 
-    def hash(self):
-        return hash(tuple(tuple(row) for row in self.board))
+        # 判断矩阵内为零的数的位置,并将索引放入到list_0中
+        list_0 = []
+        for a in range(0, self.dimension):
+            for b in range(0, self.dimension):
+                if self.matrix[a, b] == 0:
+                    list_0.append([a, b])
 
+        # 判断矩阵内为0的数的个数，如果为0,那么就不再生成新的数字
+        if len(list_0) != 0:
+            x = random.sample(list_0, 1)[0]  # 注意random.sample()函数返回值类型为列表
+            self.matrix[x[0]][x[1]] = random.randrange(2, 5, 2)
 
-@WINDOW.event
-def on_key_press(symbol, modifiers):
-    moved_flag = False
-    if symbol is key.UP or symbol is key.W:
-        moved_flag = board.shift('w')
-    elif symbol is key.RIGHT or symbol is key.D:
-        moved_flag = board.shift('d')
-    elif symbol is key.DOWN or symbol is key.S:
-        moved_flag = board.shift('s')
-    elif symbol is key.LEFT or symbol is key.A:
-        moved_flag = board.shift('a')
-    if moved_flag:
-        board.computer_move()
+    def left_(self, matrix):  # 向左平移合并
+        '''数字向左平移'''
+        for i in range(0, self.dimension):
+            list_i = list(matrix[i])
+            while 0 in list_i:
+                list_i.remove(0)
+            while len(list_i) != self.dimension:
+                list_i.append(0)
+            matrix[i] = list_i
 
+        '''水平向左合并'''
+        for a in range(0, self.dimension):
+            for b in range(0, self.dimension - 1):
+                if matrix[a][b] != 0 and matrix[a][b] == matrix[a][b + 1]:
+                    matrix[a][b] = 2 * matrix[a][b]
+                    matrix[a][b + 1] = 0
+                else:
+                    pass
 
-@WINDOW.event
-def on_draw():
-    glClear(GL_COLOR_BUFFER_BIT)
-    BG_SPRITE.y = WINDOW.height - BG_SPRITE.height
-    BG_SPRITE.draw()
+        '''数字向左平移'''
+        for i in range(0, self.dimension):
+            list_i = list(matrix[i])
+            while 0 in list_i:
+                list_i.remove(0)
+            while len(list_i) != self.dimension:
+                list_i.append(0)
+            matrix[i] = list_i
 
-    for row in board.board:
-        for tile in row:
-            if tile is not None:
-                tile.batch.draw()
-    if board.lost:
-        LOST_TEXT.text = "Final Score: "+str(board.score)
-        LOST_SCREEN.draw()
+    def right_(self, matrix):  # 向右平移合并
+        for i in range(0, self.dimension):  # 将矩阵水平方向反转 eg：[[1,2],[3,4]]>>[[2,1],[4,3]]
+            matrix[i] = matrix[i][::-1]
+        self.left_(matrix)  # 注意在类中内置函数互相调用前面要加self.，也注意不要循环调用
+        for i in range(0, self.dimension):  # 再将矩阵水平方向反转回来
+            matrix[i] = matrix[i][::-1]
 
+    def down_(self, matrix):  # 向下平移合并
+        matrix = matrix[::-1]  # 先上下反转 eg:[[1,2],[3,4]]>>[[3,4],[1,2]]
+        self.up_(matrix)
+        matrix = matrix[::-1]  # 再上下反转回来eg:[[3,4],[1,2]]>>[[1,2],[3,4]]
 
-def start(graphic=False, ai_solve=True):
-    global board
-    board = Board(graphic)
+    def up_(self, matrix):  # 向上平移合并
+        matrix = np.transpose(matrix)  # 先转置 eg:[[1,2],[3,4]]>>[[1,3],[2,4]]
+        self.left_(matrix)
+        matrix = np.transpose(matrix)  # 再转置回来 eg:[[1,3],[2,4]]>>[[1,2],[3,4]]
 
-    if not ai_solve:
-        pyglet.app.run()
-    else:
-        set_board(board)
-        if graphic:
-            # for _ in range(0, 20):
-            #     smart_move(0)
-            pyglet.clock.schedule_interval(smart_move, 1/120)
-            pyglet.app.run()
+    def move(self, matrix, dir):
+        if dir == 3:
+            self.left_(matrix)
+        elif dir == 1:
+            self.right_(matrix)
+
+        elif dir == 0:
+            self.up_(matrix)
+
+        elif dir == 2:
+            self.down_(matrix)
+
+    def print_(self, matrix):  # 显示
+        for i in matrix:
+            print(i)
+
+    def simulation(self, dir):
+        # 初始化预测模型
+
+        self.matrixSimu = copy.deepcopy(self.matrix)
+        # 上移
+        if dir == 'UP':
+            self.move(self.matrixSimu, 0)
+
+        # 右移
+        elif dir == 'RIGHT':
+            self.move(self.matrixSimu, 1)
+
+        # 下移
+        elif dir == 'DOWN':
+            self.move(self.matrixSimu, 2)
+        # 左移
+        elif dir == 'LEFT':
+            self.move(self.matrixSimu, 3)
+
+    def monotonicity(self):
+        score = 100  # 初始化分数
+        subtract = score / (2 * 4 * 4)  # 每次减去的基数
+        # 求当前所有数字的平均数
+        average = 0
+        for i in range(4):
+            for j in range(4):
+                average = self.matrixSimu[i][j] + average
+        average /= 16
+
+        # 检测最高数字所在区域
+        maxNum = {'num': 0, 'i': 0, 'j': 0}
+        for i in range(4):
+            for j in range(4):
+                if self.matrixSimu[i][j] > maxNum['num']:
+                    maxNum['num'] = self.matrixSimu[i][j]
+                    maxNum['i'] = i
+                    maxNum['j'] = j
+
+        # 左-右：递减
+        if maxNum['j'] < 2:
+            for i in range(4):
+                for j in range(1, 4):
+                    if self.matrixSimu[i][j] > self.matrixSimu[i][j - 1]:
+                        score -= subtract * ((self.matrixSimu[i][j] - self.matrixSimu[i][j - 1]) / average)
+        # 左-右：递增
         else:
-            for i in range(0, 100):
-                smart_move(0)
-                if board.lost:
-                    break
-        board.show()
-        print("Score:", board.score)
+            for i in range(4):
+                for j in range(1, 4):
+                    if self.matrixSimu[i][j] < self.matrixSimu[i][j - 1]:
+                        score -= subtract * ((self.matrixSimu[i][j - 1] - self.matrixSimu[i][j]) / average)
+        # 上-下：递减
+        if maxNum['i'] < 2:
+            for j in range(4):
+                for i in range(1, 4):
+                    if self.matrixSimu[i][j] > self.matrixSimu[i - 1][j]:
+                        score -= subtract * ((self.matrixSimu[i][j] - self.matrixSimu[i - 1][j]) / average)
+        # 上-下：递增
+        else:
+            for j in range(4):
+                for i in range(1, 4):
+                    if self.matrixSimu[i][j] < self.matrixSimu[i - 1][j]:
+                        score -= subtract * ((self.matrixSimu[i - 1][j] - self.matrixSimu[i][j]) / average)
+        return score
+
+    # 平滑性得分
+    def smoothness(self):
+        score = 0  # 初始化分数
+        plus = 20  # 每次加上的基数
+        # 求当前所有数字的平均数
+        average = 0
+        for i in range(4):
+            for j in range(4):
+                average += self.matrixSimu[i][j]
+        average /= 16
+
+        # 横向扫描
+        for i in range(4):
+            for j in range(1, 4):
+                if self.matrixSimu[i][j] == self.matrixSimu[i][j - 1]:
+                    score += plus * (self.matrixSimu[i][j] / average)
+        # 纵向扫描
+        for j in range(4):
+            for i in range(1, 4):
+                if self.matrixSimu[i][j] == self.matrixSimu[i - 1][j]:
+                    score += plus * (self.matrixSimu[i][j] / average)
+        return score
+
+    # 空闲方块加分
+    def freeTiles(self):
+        score = 0  # 初始化分数
+        plus = 10  # 每次加上的基数
+        # 遍历数组
+        for j in range(4):
+            for i in range(4):
+                if self.matrixSimu[i][j] == 0:
+                    score += plus
+        return score
+
+    dirKey = ['UP', 'RIGHT', 'DOWN', 'LEFT']
+    weightProp = [15, 4, 4]
+
+    def compare_matrix(self, matrix1, matrix2):
+        isEqual = True
+        for i in range(4):
+            for j in range(4):
+                if matrix1[i][j] != matrix2[i][j]:
+                    isEqual = False
+        return isEqual
+
+    scores = [0] * 4
+    MAX_DEPTH = 4
+
+    def helper(self, score, depth):
+        if depth >= self.MAX_DEPTH:
+            return 0
+
+        tree_score = 0
+        for i in range(4):
+            tree_score += self.helper(score, depth + 1) * ((self.MAX_DEPTH + 1 - depth) / self.MAX_DEPTH)
+
+        return tree_score + score
+
+    def best_move(self):
+        self.scores = [0] * 4
+        for i in range(4):
+            self.simulation(self.dirKey[i])
+            # 该方向无法移动
+            if self.compare_matrix(self.matrix, self.matrixSimu):
+                self.scores[i] = 0
+
+            else:
+                self.scores[i] = self.monotonicity() * self.weightProp[0] + self.smoothness() * self.weightProp[
+                    1] + self.freeTiles() * self.weightProp[2] + self.helper(self.scores[i], self.MAX_DEPTH)
+        self.move(self.matrix, self.scores.index(max(self.scores)))
+
+    def run(self):
+        self.__init__()
+        self.generate_num()
+        self.generate_num()
+        count = 0
+        for i in range(10000):
+            count += 1
+            self.best_move()
+            self.generate_num()
+            if self.judge_gameover():
+                return self.matrix, np.amax(self.matrix), count
 
 
-# start()
+if __name__ == '__main__':  # 主程序
+    g1 = Game()
+    g1.generate_num()
+    g1.generate_num()
 
+    for i in range(10000):
+        g1.best_move()
+        g1.generate_num()
+        g1.print_(g1.matrix)
+        if g1.judge_gameover():
+            print("moves: " and i)
+            break
